@@ -1,0 +1,162 @@
+{% extends 'core/base.html' %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+    body {
+        font-family: 'Space Grotesk', sans-serif;
+        background: #050811;
+        color: white;
+        overflow-x: hidden;
+    }
+
+    /* ORBS (same as home/login) */
+    .orb {
+        position: fixed;
+        border-radius: 50%;
+        filter: blur(100px);
+        z-index: -1;
+    }
+    .orb1 { width: 500px; height: 500px; background: #3b82f6; top: -200px; right: -200px; opacity: 0.3; }
+    .orb2 { width: 600px; height: 600px; background: #06b6d4; bottom: -300px; left: -200px; opacity: 0.2; }
+    .orb3 { width: 400px; height: 400px; background: #a855f7; top: 50%; right: 30%; opacity: 0.15; }
+
+    /* KEEP YOUR DESIGN SAME */
+    .register-box {
+        max-width: 350px;
+        margin: 60px auto;
+        padding: 30px;
+        background: rgba(15, 25, 45, 0.7);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(59,130,246,0.3);
+        border-radius: 10px;
+        text-align: center;
+    }
+
+    .logo {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 20px;
+
+        background: linear-gradient(135deg, #60a5fa, #c084fc, #22d3ee);
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+    }
+
+    .form-control, select {
+        background-color: #0f172a;
+        border: 1px solid #2d3a5e;
+        font-size: 14px;
+        color: white;
+    }
+
+    .form-control::placeholder {
+        color: #64748b;
+    }
+
+    .btn-custom {
+        background: linear-gradient(95deg, #2563eb, #7c3aed);
+        color: white;
+        font-weight: 600;
+        border: none;
+    }
+
+    .btn-custom:hover {
+        opacity: 0.9;
+    }
+
+    .login-box {
+        max-width: 350px;
+        margin: 10px auto;
+        padding: 15px;
+        background: rgba(15, 25, 45, 0.7);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(59,130,246,0.3);
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    a {
+        color: #60a5fa;
+        text-decoration: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ORBS -->
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<div class="register-box">
+
+    <div class="logo">
+        Smart Food Redistribution Network 🍽️
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-danger">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Username -->
+        <input type="text" name="username" placeholder="Username"
+               class="form-control mb-2" required>
+
+        <!-- Email -->
+        <input type="email" name="email" placeholder="Email"
+               class="form-control mb-2" required>
+
+        <!-- Role -->
+        <select name="role" class="form-control mb-2" required>
+            <option value="">Select Role</option>
+            <option value="donor">Donor</option>
+            <option value="ngo">NGO</option>
+            <option value="volunteer">Delivery Person</option>
+        </select>
+
+        <!-- Password -->
+        <div class="input-group mb-2">
+            <input type="password" name="password1" id="pass1"
+                   placeholder="Password" class="form-control" required>
+
+            <button type="button" class="btn btn-outline-secondary"
+                    onclick="togglePassword('pass1')">👁️</button>
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="input-group mb-3">
+            <input type="password" name="password2" id="pass2"
+                   placeholder="Confirm Password" class="form-control" required>
+
+            <button type="button" class="btn btn-outline-secondary"
+                    onclick="togglePassword('pass2')">👁️</button>
+        </div>
+
+        <button type="submit" class="btn btn-custom w-100">Sign Up</button>
+
+    </form>
+</div>
+
+<!-- LOGIN LINK -->
+<div class="login-box">
+    Already have an account?
+    <a href="{% url 'login' %}" class="fw-bold">Log in</a>
+</div>
+
+<script>
+function togglePassword(id) {
+    let input = document.getElementById(id);
+    input.type = (input.type === "password") ? "text" : "password";
+}
+</script>
+
+{% endblock %}

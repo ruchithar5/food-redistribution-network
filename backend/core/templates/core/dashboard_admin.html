@@ -1,0 +1,35 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+
+<div class="sidebar">
+    <div class="logo">👑 Admin</div>
+    <div class="nav-item active">Overview</div>
+    <div class="nav-item">Users</div>
+</div>
+
+<div class="main-content">
+    <div class="header">
+        <h1>Admin Dashboard</h1>
+        <div class="user-info">
+            <span>{{ request.user.username }}</span>
+            <a href="{% url 'logout' %}" class="btn-logout">Logout</a>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card"><h3>156</h3><p>Donors</p></div>
+        <div class="stat-card"><h3>42</h3><p>NGOs</p></div>
+    </div>
+
+    <div class="user-table">
+        <h3>Users</h3>
+        <table>
+            <tr><th>Name</th><th>Role</th></tr>
+            <tr><td>User1</td><td>Donor</td></tr>
+        </table>
+    </div>
+
+</div>
+
+{% endblock %}

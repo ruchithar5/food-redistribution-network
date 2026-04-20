@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting...</title>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #050811;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+        }
+
+        .loader {
+            text-align: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #2d3a5e;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="loader">
+    <div class="spinner"></div>
+    <p>Loading your personalized dashboard...</p>
+</div>
+
+<script>
+    // 🔥 Get role from Django
+    const userRole = "{{ request.user.role }}";
+
+    // Role → Dashboard mapping
+    const dashboards = {
+        "donor": "/dashboard/donor/",
+        "ngo": "/dashboard/ngo/",
+        "volunteer": "/dashboard/delivery/"
+    };
+
+    // Redirect after delay
+    setTimeout(() => {
+        window.location.href = dashboards[userRole] || "/dashboard/donor/";
+    }, 1500);
+</script>
+
+</body>
+</html>

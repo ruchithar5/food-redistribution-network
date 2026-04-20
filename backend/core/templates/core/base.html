@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Food Redistribution Network</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+<!-- 🔥 NAVBAR -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand" href="/">Food Network</a>
+
+    <div>
+      <a href="/login/" class="btn btn-outline-light btn-sm">Login</a>
+      <a href="/register/" class="btn btn-success btn-sm">Register</a>
+    </div>
+  </div>
+</nav>
+
+<!-- 🔥 MAIN CONTENT -->
+<div class="container mt-4">
+    {% block content %}{% endblock %}
+</div>
+
+</body>
+</html>
