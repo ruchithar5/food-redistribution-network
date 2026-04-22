@@ -210,3 +210,32 @@ def admin_portal(request):
         return redirect('dashboard_router')
 
     return render(request, 'core/admin_portal.html')
+def request_food(request):
+    if request.method == "POST":
+        food_item = request.POST.get("food_item")
+        quantity = request.POST.get("quantity")
+        urgency = request.POST.get("urgency")
+        notes = request.POST.get("notes")
+
+        print(food_item, quantity, urgency, notes)  # debug
+
+        # You can save later (for now just redirect)
+        return redirect('dashboard_ngo')
+
+    return redirect('dashboard_ngo')
+from django.http import JsonResponse
+
+@login_required
+def start_pickup(request, id):
+    from .models import Pickup
+    pickup = Pickup.objects.get(id=id)
+    pickup.status = 'in-progress'
+    pickup.save()
+    return JsonResponse({'status': 'success'})
+@login_required
+def complete_pickup(request, id):
+    from .models import Pickup
+    pickup = Pickup.objects.get(id=id)
+    pickup.status = 'completed'
+    pickup.save()
+    return JsonResponse({'status': 'done'})

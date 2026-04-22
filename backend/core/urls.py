@@ -26,6 +26,8 @@ urlpatterns = [
     path('dashboard/volunteer/', views.dashboard_volunteer, name='dashboard_volunteer'),
     path('dashboard/admin/', views.dashboard_admin, name='dashboard_admin'),
     path('admin-portal/', views.admin_portal, name='admin_portal'),
+    path('request-food/', views.request_food, name='request_food'),
+    path('api/pickup/<int:id>/complete/', views.complete_pickup),
 
     # ==================== FOOD FEATURES ====================
 
