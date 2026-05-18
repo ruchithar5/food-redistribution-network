@@ -3,12 +3,15 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db.models import Sum
-
+from django.http import JsonResponse
+from django.utils import timezone
 from .forms import RegisterForm
 from .models import FoodDonation
-
+from .models import Pickup
+from .ai_food_detector import analyze_food_image
 User = get_user_model()
-
+from django.db.models.functions import TruncMonth
+from django.db.models import Count
 
 # ================= REGISTER =================
 def register(request):
@@ -51,7 +54,7 @@ def redirect_dashboard(role):
     role_redirects = {
         'donor': 'dashboard_donor',
         'ngo': 'dashboard_ngo',
-        'volunteer': 'dashboard_volunteer',
+        'delivery': 'dashboard_delivery',   # ✅ updated
         'admin': 'dashboard_admin',
     }
     return redirect(role_redirects.get(role, 'dashboard_donor'))
@@ -65,40 +68,120 @@ def dashboard_router(request):
 # ================= DONOR DASHBOARD =================
 @login_required
 def dashboard_donor(request):
-    donations = FoodDonation.objects.filter(donor=request.user).order_by('-created_at')
 
-    total_donations = donations.count()
-    total_food = donations.aggregate(Sum('quantity'))['quantity__sum'] or 0
-    accepted_count = donations.filter(status='accepted').count()
-    delivered_count = donations.filter(status='delivered').count()
+    donations = FoodDonation.objects.filter(
+        donor=request.user
+    ).order_by('-created_at')
 
-    # 🔥 NEW: Expiry logic
-    from django.utils import timezone
-    from datetime import timedelta
-
-    expiring_soon = 0
+    # ================= AUTO EXPIRED CHECK =================
 
     for donation in donations:
-        if donation.expiry_time:
-            if donation.expiry_time <= timezone.now() + timedelta(hours=24):
-                donation.is_expiring = True
-                expiring_soon += 1
-            else:
-                donation.is_expiring = False
-        else:
-            donation.is_expiring = False
 
+        if donation.is_expired() and donation.status != "delivered":
+
+            donation.status = "expired"
+            donation.save()
+
+    # ================= STATISTICS =================
+
+    total_donations = donations.count()
+
+    total_food_saved = donations.aggregate(
+        Sum('quantity')
+    )['quantity__sum'] or 0
+
+    unique_ngos = donations.filter(
+        ngo__isnull=False
+    ).values('ngo').distinct().count()
+
+    # TRUST SCORE CALCULATION
+
+    delivered_count = donations.filter(
+        status='delivered'
+    ).count()
+
+    if total_donations > 0:
+
+        donor_rating = round(
+            (delivered_count / total_donations) * 5,
+            1
+        )
+
+    else:
+        donor_rating = 0
+
+    # CO2 SAVED
+
+    carbon_saved = round(
+        total_food_saved * 2.5,
+        2
+    )
+
+    # MONTHLY DONATIONS
+    monthly_data = donations.annotate(
+        month=TruncMonth('created_at')
+    ).values('month').annotate(
+        total=Count('id')
+    ).order_by('month')
+
+    months = []
+    monthly_counts = []
+
+    for item in monthly_data:
+        months.append(
+            item['month'].strftime("%b")
+        )
+        monthly_counts.append(
+            item['total']
+        )
+
+# STATUS COUNTS
+    pending_count = donations.filter(
+        status='pending'
+    ).count()
+
+    accepted_count = donations.filter(
+        status='accepted'
+    ).count()
+
+    picked_count = donations.filter(
+        status='picked'
+    ).count()
+
+    delivered_count = donations.filter(
+        status='delivered'
+    ).count()
+
+    # ================= CONTEXT =================
+    
     context = {
+
         'donations': donations,
+
         'total_donations': total_donations,
-        'total_food': total_food,
-        'accepted_count': accepted_count,
-        'delivered_count': delivered_count,
-        'expiring_soon': expiring_soon,  # 🔥 NEW
+
+        'total_food_saved': total_food_saved,
+
+        'unique_ngos': unique_ngos,
+
+        'donor_rating': donor_rating,
+
+        'carbon_saved': carbon_saved,
+
+        'months': months,
+'monthly_counts': monthly_counts,
+
+'pending_count': pending_count,
+'accepted_count': accepted_count,
+'picked_count': picked_count,
+'delivered_count': delivered_count,
     }
 
-    return render(request, 'core/dashboard_donor.html', context)
-
+    return render(
+        request,
+        'core/dashboard_donor.html',
+        context
+    )
 # ================= NGO DASHBOARD =================
 @login_required
 def dashboard_ngo(request):
@@ -115,19 +198,19 @@ def dashboard_ngo(request):
     return render(request, 'core/dashboard_ngo.html', context)
 
 
-# ================= VOLUNTEER DASHBOARD =================
+# ================= DELIVERY DASHBOARD =================
 @login_required
-def dashboard_volunteer(request):
+def dashboard_delivery(request):
     donations = FoodDonation.objects.filter(status='accepted')
 
     context = {
         'deliveries_count': donations.count(),
-        'distance': 120,   # dummy
-        'earnings': 1500,  # dummy
+        'distance': 120,   # dummy for now
+        'earnings': 1500,  # dummy for now
         'donations': donations
     }
 
-    return render(request, 'core/dashboard_volunteer.html', context)
+    return render(request, 'core/dashboard_delivery.html', context)
 
 
 # ================= ADMIN DASHBOARD =================
@@ -150,35 +233,103 @@ def home(request):
 
 
 # ================= ADD FOOD =================
-from django.shortcuts import redirect
-from django.contrib.auth.decorators import login_required
-from .models import FoodDonation
 from datetime import datetime
+
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect
+from .models import FoodDonation
+import hashlib
+import random
+from django.utils.dateparse import parse_datetime
 
 @login_required
 def add_food(request):
-    if request.method == 'POST':
-        try:
-            expiry_input = request.POST.get('expiry_date')
 
-            # Convert HTML datetime-local → Python datetime
-            expiry_time = datetime.strptime(expiry_input, "%Y-%m-%dT%H:%M")
+    if request.method == "POST":
 
-            FoodDonation.objects.create(
-                donor=request.user,
-                food_name=request.POST.get('food_name'),
-                food_type=request.POST.get('food_type'),
-                quantity=float(request.POST.get('quantity')),
-                location=request.POST.get('location'),
-                expiry_time=expiry_time,  # ✅ FIXED properly
-                description=request.POST.get('description'),
-                food_image=request.FILES.get('food_image')
-            )
+        # =========================
+        # DATETIME CONVERSION
+        # =========================
+        expiry_str = request.POST.get("expiry_time")
+        expiry_time = parse_datetime(expiry_str)
 
-        except Exception as e:
-            print("ERROR:", e)  # debug
+        if expiry_time and timezone.is_naive(expiry_time):
+            expiry_time = timezone.make_aware(expiry_time)
 
-    return redirect('dashboard_donor')
+        # =========================
+        # CREATE DONATION
+        # =========================
+        food = FoodDonation.objects.create(
+            donor=request.user,
+            food_name=request.POST.get("food_name"),
+            food_type=request.POST.get("food_type"),
+            quantity=request.POST.get("quantity"),
+            location=request.POST.get("location"),
+            expiry_time=expiry_time,
+            description=request.POST.get("description"),
+            status="pending",
+
+            # MAP LOCATION
+            latitude=request.POST.get("latitude") or None,
+            longitude=request.POST.get("longitude") or None,
+            # PICKUP TIME
+            pickup_start_time=request.POST.get("pickup_start_time") or None,
+            pickup_end_time=request.POST.get("pickup_end_time") or None,
+
+    # URGENCY
+            urgency_level=request.POST.get("urgency_level") or "normal",
+           
+        )
+
+        # =========================
+        # IMAGE UPLOAD
+        # =========================
+        if request.FILES.get("image"):
+            food.image = request.FILES.get("image")
+            food.save()
+
+            # =========================
+            # REAL AI ANALYSIS
+            # =========================
+            result = analyze_food_image(food.image.path)
+
+            food.ai_quality_score = result["score"]
+            food.food_condition = result["condition"]
+
+        else:
+            # DEFAULT VALUES
+            food.ai_quality_score = 50
+            food.food_condition = "No Image"
+
+        # =========================
+        # AI MATCH SCORE
+        # =========================
+        food.ai_match_score = random.randint(80, 100)
+
+        # =========================
+        # EXPIRY PREDICTION
+        # =========================
+        if food.is_expiring_soon():
+            food.expiry_prediction = "Expiring Soon"
+        else:
+            food.expiry_prediction = "Fresh Food"
+
+        # =========================
+        # BLOCKCHAIN HASH
+        # =========================
+        hash_data = f"{food.food_name}{food.quantity}{food.created_at}"
+
+        food.blockchain_tx_hash = hashlib.sha256(
+            hash_data.encode()
+        ).hexdigest()
+
+        # =========================
+        # FINAL SAVE
+        # =========================
+        food.save()
+
+    return redirect("dashboard_donor")
+
 # ================= NGO ACCEPT =================
 @login_required
 def accept_food(request, id):
@@ -191,10 +342,10 @@ def accept_food(request, id):
     return redirect('dashboard_ngo')
 
 
-# ================= VOLUNTEER DELIVER =================
+# ================= DELIVERY COMPLETE =================
 @login_required
 def mark_delivered(request, id):
-    if request.user.role != 'volunteer':
+    if request.user.role != 'delivery':
         return redirect('dashboard_router')
 
     food = get_object_or_404(FoodDonation, id=id)
@@ -202,14 +353,19 @@ def mark_delivered(request, id):
     food.status = 'delivered'
     food.save()
 
-    return redirect('dashboard_volunteer')
+    return redirect('dashboard_delivery')
 
+
+# ================= ADMIN PORTAL =================
 @login_required
 def admin_portal(request):
     if request.user.role != 'admin':
         return redirect('dashboard_router')
 
     return render(request, 'core/admin_portal.html')
+
+
+# ================= REQUEST FOOD =================
 def request_food(request):
     if request.method == "POST":
         food_item = request.POST.get("food_item")
@@ -217,25 +373,116 @@ def request_food(request):
         urgency = request.POST.get("urgency")
         notes = request.POST.get("notes")
 
-        print(food_item, quantity, urgency, notes)  # debug
+        print(food_item, quantity, urgency, notes)
 
-        # You can save later (for now just redirect)
         return redirect('dashboard_ngo')
 
     return redirect('dashboard_ngo')
-from django.http import JsonResponse
 
+
+# ================= API: START PICKUP =================
 @login_required
 def start_pickup(request, id):
     from .models import Pickup
-    pickup = Pickup.objects.get(id=id)
+    pickup = get_object_or_404(Pickup, id=id)
     pickup.status = 'in-progress'
     pickup.save()
     return JsonResponse({'status': 'success'})
+
+
+# ================= API: COMPLETE PICKUP =================
 @login_required
 def complete_pickup(request, id):
     from .models import Pickup
-    pickup = Pickup.objects.get(id=id)
+    pickup = get_object_or_404(Pickup, id=id)
     pickup.status = 'completed'
     pickup.save()
     return JsonResponse({'status': 'done'})
+
+@login_required
+def get_assigned_pickups(request):
+    pickups = Pickup.objects.filter(
+        volunteer=request.user
+    ).exclude(status='completed').select_related('donation', 'donation__donor')
+
+    data = []
+
+    for p in pickups:
+        data.append({
+            "id": p.id,
+            "status": p.status,
+            "distance": p.distance,
+            "food_name": p.donation.food_name,
+            "location": p.donation.location,
+            "donor": p.donation.donor.username,
+            "earnings": p.earnings,
+        })
+
+    return JsonResponse({"pickups": data})
+
+@login_required
+def edit_donation(request, donation_id):
+
+    donation = FoodDonation.objects.get(id=donation_id)
+
+    if request.method == 'POST':
+
+        donation.food_name = request.POST.get('food_name')
+        donation.food_type = request.POST.get('food_type')
+        donation.quantity = request.POST.get('quantity')
+        donation.location = request.POST.get('location')
+        donation.description = request.POST.get('description')
+
+        expiry_str = request.POST.get('expiry_time')
+
+        from django.utils.dateparse import parse_datetime
+        donation.expiry_time = parse_datetime(expiry_str)
+
+        if request.FILES.get('image'):
+            donation.image = request.FILES.get('image')
+
+        donation.save()
+
+        return redirect('dashboard_donor')
+
+    return render(request, 'core/edit_donation.html', {
+        'donation': donation
+    })
+
+@login_required
+def delete_donation(request, donation_id):
+
+    if request.method == 'POST':
+
+        try:
+
+            donation = FoodDonation.objects.get(
+                id=donation_id,
+                donor=request.user
+            )
+
+            # prevent deleting accepted donations
+            if donation.status != 'pending':
+
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cannot delete accepted donation'
+                })
+
+            donation.delete()
+
+            return JsonResponse({
+                'success': True
+            })
+
+        except FoodDonation.DoesNotExist:
+
+            return JsonResponse({
+                'success': False,
+                'error': 'Donation not found'
+            })
+
+    return JsonResponse({
+        'success': False,
+        'error': 'Invalid request'
+    })

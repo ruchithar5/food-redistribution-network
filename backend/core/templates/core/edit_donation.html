@@ -1,0 +1,300 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Edit Donation | SFN{% endblock %}
+
+{% block content %}
+
+<style>
+
+body{
+    background:#050811;
+    font-family:'Space Grotesk',sans-serif;
+    color:white;
+}
+
+.edit-container{
+    max-width:900px;
+    margin:40px auto;
+    padding:30px;
+}
+
+.edit-card{
+    background:rgba(15,25,45,0.7);
+    border:1px solid rgba(59,130,246,0.3);
+    border-radius:28px;
+    padding:35px;
+    backdrop-filter:blur(10px);
+    box-shadow:0 10px 30px rgba(0,0,0,0.4);
+}
+
+.edit-title{
+    font-size:32px;
+    font-weight:800;
+    margin-bottom:10px;
+    background:linear-gradient(135deg,#60a5fa,#c084fc);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+}
+
+.edit-subtitle{
+    color:#94a3b8;
+    margin-bottom:30px;
+}
+
+.form-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:20px;
+}
+
+.form-group{
+    margin-bottom:20px;
+}
+
+.form-group label{
+    display:block;
+    margin-bottom:8px;
+    color:#cbd5e1;
+    font-size:14px;
+    font-weight:500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea{
+    width:100%;
+    padding:14px 16px;
+    background:#0f172a;
+    border:1px solid #2d3a5e;
+    border-radius:16px;
+    color:white;
+    font-size:14px;
+    transition:0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus{
+    outline:none;
+    border-color:#3b82f6;
+    box-shadow:0 0 0 3px rgba(59,130,246,0.2);
+}
+
+.form-group textarea{
+    resize:none;
+    min-height:120px;
+}
+
+.image-preview{
+    margin-top:15px;
+}
+
+.image-preview img{
+    width:200px;
+    border-radius:18px;
+    border:2px solid #334155;
+}
+
+.button-group{
+    display:flex;
+    gap:15px;
+    margin-top:30px;
+    flex-wrap:wrap;
+}
+
+.btn-update{
+    background:linear-gradient(95deg,#2563eb,#7c3aed);
+    border:none;
+    padding:14px 28px;
+    border-radius:40px;
+    color:white;
+    font-weight:700;
+    cursor:pointer;
+    transition:0.2s;
+}
+
+.btn-update:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 25px rgba(37,99,235,0.4);
+}
+
+.btn-cancel{
+    background:rgba(239,68,68,0.15);
+    border:1px solid #ef4444;
+    padding:14px 28px;
+    border-radius:40px;
+    color:#fca5a5;
+    text-decoration:none;
+    font-weight:700;
+    transition:0.2s;
+}
+
+.btn-cancel:hover{
+    background:rgba(239,68,68,0.25);
+}
+
+.status-badge{
+    display:inline-block;
+    padding:6px 14px;
+    border-radius:20px;
+    font-size:13px;
+    margin-top:10px;
+    background:#3b82f620;
+    color:#60a5fa;
+}
+
+</style>
+
+<div class="edit-container">
+
+    <div class="edit-card">
+
+        <h1 class="edit-title">
+            ✏️ Edit Donation
+        </h1>
+
+        <p class="edit-subtitle">
+            Update your food donation details
+        </p>
+
+        <span class="status-badge">
+            Current Status: {{ donation.status }}
+        </span>
+
+        <form method="POST" enctype="multipart/form-data">
+
+            {% csrf_token %}
+
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label>🍱 Food Name</label>
+                    <input type="text"
+                           name="food_name"
+                           value="{{ donation.food_name }}"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label>🏷️ Food Type</label>
+
+                    <select name="food_type">
+
+                        <option value="fresh"
+                        {% if donation.food_type == "fresh" %}selected{% endif %}>
+                            Fresh Produce
+                        </option>
+
+                        <option value="cooked"
+                        {% if donation.food_type == "cooked" %}selected{% endif %}>
+                            Cooked Food
+                        </option>
+
+                        <option value="packaged"
+                        {% if donation.food_type == "packaged" %}selected{% endif %}>
+                            Packaged Food
+                        </option>
+
+                        <option value="dairy"
+                        {% if donation.food_type == "dairy" %}selected{% endif %}>
+                            Dairy Products
+                        </option>
+
+                        <option value="bakery"
+                        {% if donation.food_type == "bakery" %}selected{% endif %}>
+                            Bakery Items
+                        </option>
+
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>⚖️ Quantity (kg)</label>
+                    <input type="number"
+                           step="0.1"
+                           name="quantity"
+                           value="{{ donation.quantity }}"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label>📍 Pickup Location</label>
+                    <input type="text"
+                           name="location"
+                           value="{{ donation.location }}"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label>⏰ Expiry Time</label>
+                    <input type="datetime-local"
+                           name="expiry_time"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label>📷 Upload New Image</label>
+                    <input type="file"
+                           name="image"
+                           accept="image/*"
+                           onchange="previewImage(event)">
+                </div>
+
+            </div>
+
+            <div class="form-group">
+                <label>📝 Description</label>
+
+                <textarea name="description">{{ donation.description }}</textarea>
+            </div>
+
+            {% if donation.image %}
+            <div class="image-preview">
+
+                <p style="margin-bottom:10px;color:#94a3b8;">
+                    Current Image
+                </p>
+
+                <img src="{{ donation.image.url }}" id="preview">
+
+            </div>
+            {% else %}
+            <div class="image-preview">
+                <img id="preview" style="display:none;">
+            </div>
+            {% endif %}
+
+            <div class="button-group">
+
+                <button type="submit" class="btn-update">
+                    🚀 Update Donation
+                </button>
+
+                <a href="{% url 'dashboard_donor' %}" class="btn-cancel">
+                    ❌ Cancel
+                </a>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<script>
+
+function previewImage(event){
+
+    const preview = document.getElementById('preview');
+
+    preview.src = URL.createObjectURL(event.target.files[0]);
+
+    preview.style.display = "block";
+}
+
+</script>
+
+{% endblock %}

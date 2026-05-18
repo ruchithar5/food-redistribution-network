@@ -19,18 +19,19 @@ urlpatterns = [
 
     # ==================== DASHBOARD ROUTER ====================
     path('dashboard/', views.dashboard_router, name='dashboard_router'),
-
+    path('delete-donation/<int:donation_id>/',views.delete_donation,name='delete_donation'),
     # ==================== ROLE DASHBOARDS ====================
     path('dashboard/donor/', views.dashboard_donor, name='dashboard_donor'),
     path('dashboard/ngo/', views.dashboard_ngo, name='dashboard_ngo'),
-    path('dashboard/volunteer/', views.dashboard_volunteer, name='dashboard_volunteer'),
+    path('dashboard/delivery/', views.dashboard_delivery, name='dashboard_delivery'),
     path('dashboard/admin/', views.dashboard_admin, name='dashboard_admin'),
     path('admin-portal/', views.admin_portal, name='admin_portal'),
     path('request-food/', views.request_food, name='request_food'),
     path('api/pickup/<int:id>/complete/', views.complete_pickup),
-
+    path('api/pickups/', views.get_assigned_pickups, name='assigned_pickups'),
+    path('add-food/', views.add_food, name='add_food'),
     # ==================== FOOD FEATURES ====================
-
+    path('edit-donation/<int:donation_id>/', views.edit_donation, name='edit_donation'),
     path('add-donation/', views.add_food, name='add_food'),
 
     # 🔥 NEXT (we will build soon)

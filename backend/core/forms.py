@@ -7,7 +7,7 @@ class RegisterForm(UserCreationForm):
     ROLE_CHOICES = [
         ('donor', 'Donor'),
         ('ngo', 'NGO'),
-        ('volunteer', 'Delivery Person'),
+        ('delivery', 'Delivery Person'),  # ✅ FIXED (value changed)
     ]
 
     email = forms.EmailField(required=True)
@@ -24,19 +24,24 @@ class RegisterForm(UserCreationForm):
             raise forms.ValidationError("Email already exists")
         return email
 
-    # 🔒 Username uniqueness (extra safety)
+    # 🔒 Username uniqueness
     def clean_username(self):
         username = self.cleaned_data.get('username')
         if User.objects.filter(username=username).exists():
             raise forms.ValidationError("Username already taken")
         return username
 
-    # 🎨 Apply styling to match your UI
+    # 🎨 Styling
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        for field in self.fields.values():
+        for field_name, field in self.fields.items():
             field.widget.attrs.update({
                 'class': 'form-control',
                 'placeholder': field.label
             })
+
+        # 🔥 Optional: better dropdown UI label
+        self.fields['role'].widget.attrs.update({
+            'class': 'form-control'
+        })
