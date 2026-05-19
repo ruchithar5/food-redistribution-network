@@ -6,13 +6,13 @@ from django.db.models import Sum
 from django.http import JsonResponse
 from django.utils import timezone
 from .forms import RegisterForm
-from .models import FoodDonation
+from .models import FoodDonation,Notification
 from .models import Pickup
 from .ai_food_detector import analyze_food_image
 User = get_user_model()
 from django.db.models.functions import TruncMonth
 from django.db.models import Count
-
+from ai.food_ai import analyze_food_image
 # ================= REGISTER =================
 def register(request):
     if request.method == 'POST':
@@ -69,117 +69,70 @@ def dashboard_router(request):
 @login_required
 def dashboard_donor(request):
 
+    # ALL DONATIONS
     donations = FoodDonation.objects.filter(
         donor=request.user
     ).order_by('-created_at')
 
-    # ================= AUTO EXPIRED CHECK =================
-
-    for donation in donations:
-
-        if donation.is_expired() and donation.status != "delivered":
-
-            donation.status = "expired"
-            donation.save()
-
-    # ================= STATISTICS =================
-
+    # STATISTICS
     total_donations = donations.count()
 
-    total_food_saved = donations.aggregate(
-        Sum('quantity')
-    )['quantity__sum'] or 0
+    total_food_saved = sum(
+        float(d.quantity) for d in donations
+    ) if donations else 0
 
-    unique_ngos = donations.filter(
-        ngo__isnull=False
+    delivered_count = donations.filter(
+        status="delivered"
+    ).count()
+
+    pending_count = donations.filter(
+        status="pending"
+    ).count()
+
+    unique_ngos = donations.exclude(
+        ngo=None
     ).values('ngo').distinct().count()
 
-    # TRUST SCORE CALCULATION
+    # AI SCORE AVG
+    ai_scores = [
+        d.ai_quality_score
+        for d in donations
+        if d.ai_quality_score
+    ]
 
-    delivered_count = donations.filter(
-        status='delivered'
-    ).count()
-
-    if total_donations > 0:
-
-        donor_rating = round(
-            (delivered_count / total_donations) * 5,
-            1
-        )
-
-    else:
-        donor_rating = 0
-
-    # CO2 SAVED
-
-    carbon_saved = round(
-        total_food_saved * 2.5,
-        2
+    avg_ai_score = (
+        round(sum(ai_scores) / len(ai_scores), 1)
+        if ai_scores else 0
     )
 
-    # MONTHLY DONATIONS
-    monthly_data = donations.annotate(
-        month=TruncMonth('created_at')
-    ).values('month').annotate(
-        total=Count('id')
-    ).order_by('month')
+    # CARBON SAVED
+    carbon_saved = round(total_food_saved * 2.5, 1)
 
-    months = []
-    monthly_counts = []
+    # DONOR RATING
+    donor_rating = 4.8
 
-    for item in monthly_data:
-        months.append(
-            item['month'].strftime("%b")
-        )
-        monthly_counts.append(
-            item['total']
-        )
+    # NOTIFICATIONS
+    notifications = Notification.objects.filter(
+        user=request.user
+    ).order_by('-created_at')[:5]
 
-# STATUS COUNTS
-    pending_count = donations.filter(
-        status='pending'
-    ).count()
-
-    accepted_count = donations.filter(
-        status='accepted'
-    ).count()
-
-    picked_count = donations.filter(
-        status='picked'
-    ).count()
-
-    delivered_count = donations.filter(
-        status='delivered'
-    ).count()
-
-    # ================= CONTEXT =================
-    
     context = {
+        "donations": donations,
+        "notifications": notifications,
 
-        'donations': donations,
-
-        'total_donations': total_donations,
-
-        'total_food_saved': total_food_saved,
-
-        'unique_ngos': unique_ngos,
-
-        'donor_rating': donor_rating,
-
-        'carbon_saved': carbon_saved,
-
-        'months': months,
-'monthly_counts': monthly_counts,
-
-'pending_count': pending_count,
-'accepted_count': accepted_count,
-'picked_count': picked_count,
-'delivered_count': delivered_count,
+        "total_donations": total_donations,
+        "total_food_saved": total_food_saved,
+        "delivered_count": delivered_count,
+        "pending_count": pending_count,
+        "unique_ngos": unique_ngos,
+        "avg_ai_score": avg_ai_score,
+        "carbon_saved": carbon_saved,
+        "donor_rating": donor_rating,
     }
 
     return render(
         request,
-        'core/dashboard_donor.html',
+        "core/dashboard_donor.html",
         context
     )
 # ================= NGO DASHBOARD =================
@@ -272,37 +225,43 @@ def add_food(request):
             # MAP LOCATION
             latitude=request.POST.get("latitude") or None,
             longitude=request.POST.get("longitude") or None,
+
             # PICKUP TIME
             pickup_start_time=request.POST.get("pickup_start_time") or None,
             pickup_end_time=request.POST.get("pickup_end_time") or None,
 
-    # URGENCY
+            # URGENCY
             urgency_level=request.POST.get("urgency_level") or "normal",
-           
         )
 
         # =========================
-        # IMAGE UPLOAD
+        # IMAGE UPLOAD + AI ANALYSIS
         # =========================
         if request.FILES.get("image"):
+
             food.image = request.FILES.get("image")
             food.save()
 
-            # =========================
-            # REAL AI ANALYSIS
-            # =========================
+            # CREATE NOTIFICATION
+            Notification.objects.create(
+                user=request.user,
+                message=f"Your donation '{food.food_name}' was posted successfully."
+)
+
+            # AI ANALYSIS
             result = analyze_food_image(food.image.path)
 
             food.ai_quality_score = result["score"]
             food.food_condition = result["condition"]
 
         else:
+
             # DEFAULT VALUES
             food.ai_quality_score = 50
             food.food_condition = "No Image"
 
         # =========================
-        # AI MATCH SCORE
+        # AI NGO MATCH SCORE
         # =========================
         food.ai_match_score = random.randint(80, 100)
 
@@ -317,7 +276,11 @@ def add_food(request):
         # =========================
         # BLOCKCHAIN HASH
         # =========================
-        hash_data = f"{food.food_name}{food.quantity}{food.created_at}"
+        hash_data = (
+            f"{food.food_name}"
+            f"{food.quantity}"
+            f"{food.created_at}"
+        )
 
         food.blockchain_tx_hash = hashlib.sha256(
             hash_data.encode()
@@ -327,6 +290,8 @@ def add_food(request):
         # FINAL SAVE
         # =========================
         food.save()
+
+        return redirect("dashboard_donor")
 
     return redirect("dashboard_donor")
 

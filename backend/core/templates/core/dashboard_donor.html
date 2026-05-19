@@ -16,6 +16,7 @@
         font-family: 'Space Grotesk', sans-serif;
         background: #050811;
         color: #eef2ff;
+        scroll-behavior: smooth;
     }
     
     .sidebar {
@@ -28,6 +29,7 @@
         border-right: 1px solid #1e2a44;
         padding: 30px 20px;
         overflow-y: auto;
+        z-index: 100;
     }
     
     .logo {
@@ -39,6 +41,8 @@
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
+        text-decoration: none;
+        display: block;
     }
     
     .nav-item {
@@ -51,6 +55,8 @@
         cursor: pointer;
         transition: 0.2s;
         color: #94a3b8;
+        text-decoration: none;
+        font-size: 14px;
     }
     
     .nav-item:hover, .nav-item.active {
@@ -110,6 +116,7 @@
         padding: 30px;
         margin-bottom: 30px;
         border: 1px solid rgba(59, 130, 246, 0.3);
+        scroll-margin-top: 80px;
     }
     
     .form-grid {
@@ -164,6 +171,7 @@
         border-radius: 28px;
         padding: 25px;
         overflow-x: auto;
+        scroll-margin-top: 80px;
     }
     
     table {
@@ -273,6 +281,12 @@
         color: #94a3b8;
     }
     
+    /* Active nav highlight on scroll */
+    .nav-item.active {
+        background: rgba(59, 130, 246, 0.15);
+        color: #60a5fa;
+    }
+    
     @media (max-width: 1000px) {
         .sidebar {
             width: 80px;
@@ -290,37 +304,44 @@
     }
 </style>
 
+<!-- SIDEBAR WITH CLICKABLE LINKS -->
 <div class="sidebar">
-    <div class="logo">🍱 SFN</div>
+    <a href="#dashboard-section" class="logo">🍱 SFN</a>
     
-    <div class="nav-item active">
+    <a href="#dashboard-section" class="nav-item active" data-section="dashboard">
         <i class="fas fa-tachometer-alt"></i>
         <span>Dashboard</span>
-    </div>
-    <div class="nav-item">
+    </a>
+    
+    <a href="#new-donation-section" class="nav-item" data-section="new-donation">
         <i class="fas fa-plus-circle"></i>
         <span>New Donation</span>
-    </div>
-    <div class="nav-item">
+    </a>
+    
+    <a href="#my-donations-section" class="nav-item" data-section="my-donations">
         <i class="fas fa-history"></i>
         <span>My Donations</span>
-    </div>
-    <div class="nav-item">
+    </a>
+    
+    <a href="#analytics-section" class="nav-item" data-section="analytics">
         <i class="fas fa-chart-line"></i>
         <span>Analytics</span>
-    </div>
-    <div class="nav-item">
-        <i class="fas fa-robot"></i>
-        <span>AI Insights</span>
-    </div>
-    <div class="nav-item">
+    </a>
+    
+    <a href="#notifications-section" class="nav-item" data-section="notifications">
+        <i class="fas fa-bell"></i>
+        <span>Notifications</span>
+    </a>
+    
+    <a href="#blockchain-section" class="nav-item" data-section="blockchain">
         <i class="fas fa-link"></i>
         <span>Blockchain</span>
-    </div>
-    <div class="nav-item">
+    </a>
+    
+    <a href="#settings-section" class="nav-item" data-section="settings">
         <i class="fas fa-cog"></i>
         <span>Settings</span>
-    </div>
+    </a>
 </div>
 
 <div class="main-content">
@@ -336,8 +357,8 @@
         </div>
     </div>
 
-    <!-- STATS with REAL DATA -->
-    <div class="stats-grid">
+    <!-- DASHBOARD SECTION (STATS) -->
+    <div id="dashboard-section" class="stats-grid">
         <div class="stat-card">
             <div class="stat-icon">📦</div>
             <div class="stat-value">{{ total_donations|default:"0" }}</div>
@@ -365,8 +386,8 @@
         </div>
     </div>
 
-    <!-- ADD DONATION FORM -->
-    <div class="form-card">
+    <!-- NEW DONATION SECTION -->
+    <div id="new-donation-section" class="form-card">
         <h2 style="margin-bottom: 20px;"><i class="fas fa-plus-circle"></i> Post New Food Donation</h2>
         <form method="POST" action="{% url 'add_food' %}" enctype="multipart/form-data">
             {% csrf_token %}
@@ -454,8 +475,8 @@
         </form>
     </div>
 
-    <!-- MY DONATIONS TABLE -->
-    <div class="donations-table">
+    <!-- MY DONATIONS SECTION -->
+    <div id="my-donations-section" class="donations-table">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
             <h2><i class="fas fa-history"></i> My Donations</h2>
             <div style="display:flex; gap:10px;">
@@ -528,7 +549,7 @@
                         {% endif %}
                     </td>
 
-                    <!-- PICKUP TIME - FIXED with empty check -->
+                    <!-- PICKUP TIME -->
                     <td>
                         {% if donation.pickup_start_time and donation.pickup_end_time %}
                             {{ donation.pickup_start_time }}
@@ -541,9 +562,8 @@
                         {% endif %}
                     </td>
 
-                    <!-- STATUS - FIXED with timeline inside -->
+                    <!-- STATUS -->
                     <td>
-                        <!-- UPDATED: Auto Status Colors for Urgency -->
                         <span class="status-badge status-{{ donation.status }}">{{ donation.get_status_display }}</span>
                         
                         <div style="width:140px; height:8px; background:#1e293b; border-radius:20px; overflow:hidden; margin-top:10px;">
@@ -565,7 +585,6 @@
                         
                         <br>
                         
-                        <!-- UPDATED: Urgency with Auto Colors -->
                         <span class="status-badge" 
                             {% if donation.urgency_level == 'emergency' %}
                                 style="background:#dc262620; color:#f87171;"
@@ -578,7 +597,6 @@
                             {{ donation.urgency_level|title }}
                         </span>
 
-                        <!-- FIXED: Status timeline moved inside td -->
                         <div style="margin-top:10px; font-size:11px; color:#94a3b8;">
                             {% if donation.accepted_at %}
                                 ✅ Accepted: {{ donation.accepted_at|date:"d M Y H:i" }}<br>
@@ -590,7 +608,7 @@
                                 🎉 Delivered: {{ donation.delivered_at|date:"d M Y H:i" }}
                             {% endif %}
                         </div>
-                    </td>
+                     </td>
 
                     <!-- AI MATCH -->
                     <td>
@@ -599,17 +617,17 @@
                         {% else %}
                             —
                         {% endif %}
-                    </td>
+                     </td>
 
                     <!-- AI QUALITY -->
                     <td>
                         <span class="status-badge">{{ donation.food_condition }}</span>
                         <br>
                         <small>AI Score: {{ donation.ai_quality_score }}/100</small>
-                    </td>
+                     </td>
 
                     <!-- BLOCKCHAIN -->
-                    <td>
+                    <td id="blockchain-section">
                         {% if donation.blockchain_tx_hash %}
                             <span class="blockchain-hash">
                                 <i class="fas fa-link"></i>
@@ -618,36 +636,45 @@
                         {% else %}
                             —
                         {% endif %}
-                    </td>
+                     </td>
 
                     <!-- ACTIONS -->
-                    <td>
+                    <td id="settings-section">
                         {% if donation.status == "pending" %}
-                            <a href="{% url 'edit_donation' donation.id %}" class="btn-secondary" style="display:inline-block; margin-right:5px;">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <button type="button" onclick="deleteDonation('{{ donation.id }}')" class="btn-danger">
-                                <i class="fas fa-trash"></i>
-                            </button>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <a href="{% url 'edit_donation' donation.id %}" 
+                                   class="btn-secondary"
+                                   style="display:flex; align-items:center; justify-content:center; width:70px; height:38px; border-radius:12px; text-decoration:none;">
+                                    Edit
+                                </a>
+                                <button type="button"
+                                        onclick="deleteDonation('{{ donation.id }}')"
+                                        class="btn-danger"
+                                        style="width:70px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center;">
+                                    Delete
+                                </button>
+                            </div>
                         {% else %}
-                            <span class="status-badge">Locked</span>
+                            <span class="status-badge" style="background:#334155; color:#cbd5e1; padding:8px 14px;">
+                                🔒 Locked
+                            </span>
                         {% endif %}
-                    </td>
-                </tr>
+                     </td>
+                 </tr>
                 {% empty %}
                 <tr>
                     <td colspan="10" style="text-align:center; padding:40px;">
                         <i class="fas fa-box-open" style="font-size:48px; opacity:0.5;"></i>
                         <p style="margin-top:10px;">No donations yet. Post your first donation above!</p>
-                    </td>
-                </tr>
+                     </td>
+                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
     <!-- ANALYTICS SECTION -->
-    <div class="form-card" style="margin-top:30px;">
+    <div id="analytics-section" class="form-card" style="margin-top:30px;">
         <h2 style="margin-bottom:20px;"><i class="fas fa-chart-line"></i> Donation Analytics</h2>
         <div class="stats-grid">
             <div class="stat-card">
@@ -673,34 +700,72 @@
         </div>
     </div>
 
-    <!-- NOTIFICATIONS SECTION - UPDATED with Real Notifications -->
-    <div class="form-card" style="margin-top:30px;">
+    <!-- NOTIFICATIONS SECTION -->
+    <div id="notifications-section" class="form-card" style="margin-top:30px;">
         <h2><i class="fas fa-bell"></i> Notifications</h2>
-        
-        {% for donation in donations|slice:":5" %}
+
+        {% for notification in notifications %}
             <div class="ai-prediction" style="margin-top:15px;">
-                {% if donation.status == "pending" %}
-                    ⏳ Your donation <strong>{{ donation.food_name }}</strong> is waiting for NGO acceptance.
-                {% endif %}
-                {% if donation.status == "accepted" %}
-                    ✅ NGO accepted your donation <strong>{{ donation.food_name }}</strong>.
-                {% endif %}
-                {% if donation.status == "picked" %}
-                    🚚 Pickup completed for <strong>{{ donation.food_name }}</strong>.
-                {% endif %}
-                {% if donation.status == "delivered" %}
-                    🎉 Donation delivered successfully: <strong>{{ donation.food_name }}</strong>.
-                {% endif %}
+                🔔 {{ notification.message }}
+                <br>
+                <small style="color:#94a3b8;">
+                    {{ notification.created_at|naturaltime }}
+                </small>
             </div>
         {% empty %}
             <div class="ai-prediction">
-                <i class="fas fa-info-circle"></i> No notifications yet. Your donation updates and NGO activity will appear here.
+                No notifications yet.
             </div>
         {% endfor %}
     </div>
 </div>
 
 <script>
+    // Active nav highlight on scroll
+    const sections = document.querySelectorAll('[id^="dashboard-section"], [id^="new-donation-section"], [id^="my-donations-section"], [id^="analytics-section"], [id^="notifications-section"], [id^="blockchain-section"], [id^="settings-section"]');
+    const navLinks = document.querySelectorAll('.nav-item');
+    
+    function updateActiveNav() {
+        let current = '';
+        const scrollPosition = window.scrollY + 100;
+        
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            const sectionBottom = sectionTop + section.offsetHeight;
+            if (scrollPosition >= sectionTop && scrollPosition < sectionBottom) {
+                current = section.getAttribute('id');
+            }
+        });
+        
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            const href = link.getAttribute('href');
+            if (href && href.substring(1) === current) {
+                link.classList.add('active');
+            }
+        });
+    }
+    
+    window.addEventListener('scroll', updateActiveNav);
+    window.addEventListener('load', updateActiveNav);
+    
+    // Smooth scroll for nav links
+    document.querySelectorAll('.nav-item').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href');
+            if (targetId && targetId !== '#') {
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            }
+        });
+    });
+    
     // Image preview with AI analysis
     function previewImage(input) {
         const preview = document.getElementById('imagePreview');

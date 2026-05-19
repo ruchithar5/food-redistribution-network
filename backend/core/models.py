@@ -2,8 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
-
-
+from django.contrib.auth.models import User
 # ================= USER MODEL =================
 class User(AbstractUser):
     ROLE_CHOICES = (
@@ -178,3 +177,12 @@ class Pickup(models.Model):
             self.rating = rating
             self.earnings = 50 + (rating * 10)
         self.save()
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.message
